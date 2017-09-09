@@ -84,7 +84,7 @@ export default {
                   this._l(rowCount, lineNo => <tr>{
                     this._l(this.columns, (column, cellIndex) => {
                       const rowSpan = this.getRowSpan(row, column);
-                      return lineNo % rowSpan === 1 ? <td rowspan={rowSpan} class={[column.id, column.align, column.className || '', columnsHidden[cellIndex] ? 'is-hidden' : '']}
+                      return lineNo % rowSpan === 1 || (rowSpan === 1)? <td rowspan={rowSpan} class={[column.id, column.align, column.className || '', columnsHidden[cellIndex] ? 'is-hidden' : '']}
                                                           on-mouseenter={($event) => this.handleCellMouseEnter($event, row)}
                                                           on-mouseleave={this.handleCellMouseLeave}>
                         {
@@ -92,7 +92,7 @@ export default {
                             row,
                             column,
                             $index,
-                            index: parseInt(lineNo / rowSpan),
+                            index: rowSpan === 1 ? lineNo - 1 : parseInt(lineNo / rowSpan),
                             store: this.store,
                             _self: this.context || this.table.$vnode.context
                           }, columnsHidden[cellIndex])

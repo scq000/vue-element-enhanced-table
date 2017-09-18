@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import { getValueByPath } from 'element-ui/src/utils/util';
 
 export const getCell = function(event) {
@@ -83,27 +84,58 @@ export const getRowIdentity = (row, rowKey) => {
   }
 };
 
-// 最大公约数和最小公倍数
-export const gcd = (a, b) => {
-  return a % b === 0 ? b: gcd(b, a % b);
-};
 
-export const lcm = (a, b) => {
-  return a * b / gcd(a, b);
-};
-
-export const gcds = (...nums) => {
-  let result = 1;
-  for(let i = 0; i < nums.length; i++) {
-    result = gcd(result, nums[i]);
+// 提取每个列的合并数据
+function extractKey(arr, key, item, relativeKey) {
+  let subItem = { count: 1, value: arr[0][key] };
+  item[key].push(subItem);
+  for (let i = 1; i < arr.length; i++) {
+    const cur = arr[i];
+    const prev = arr[i - 1];
+    if (relativeKey) {
+      const predicateKeys = [key].concat(relativeKey);
+      if (predicateKeys.every(ele => _.isEqual(cur[ele], prev[ele]))) {
+        subItem.count ++;
+      } else {
+        subItem = { count: 1, value: cur[key] };
+        item[key].push(subItem);
+      }
+    } else if (cur[key] === prev[key]) {
+      subItem.count++;
+    } else {
+      subItem = { count: 1, value: cur[key] };
+      item[key].push(subItem);
+    }
   }
-  return result;
-};
+}
 
-export const lcms = (...nums) => {
-  let result = 1;
-  for(let i = 0; i < nums.length; i++) {
-    result = lcm(result, nums[i]);
+function createRowItem(arr, keys, rules) {
+  const item = {};
+  keys.forEach((key) => {
+    const relativeKey = rules[key];
+    item[key] = [];
+    extractKey(arr, key, item, relativeKey);
+  });
+  return item;
+}
+
+/*
+ * 合并数据
+ * rules: { key: 'relativeKey' } 用来处理合并相关数据，支持字符串或数组
+ */
+export function mergeData(arr, options) {
+  if (!arr.length) {
+    return [];
   }
+  const rules = options.rules || {};
+  const uniqKey = options.uniqKey;
+
+  const result = [];
+
+  const keys = Object.keys(arr[0]);
+  _.toArray(_.groupBy(arr, uniqKey)).forEach(subArr => {
+    result.push(createRowItem(subArr, keys, rules));
+  });
+
   return result;
-};
+}

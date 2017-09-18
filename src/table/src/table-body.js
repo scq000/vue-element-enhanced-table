@@ -1,6 +1,6 @@
-import { getCell, getColumnByCell, getRowIdentity, gcds, lcms } from './util';
+import { getCell, getColumnByCell, getRowIdentity, mergeData } from './util';
 import { hasClass, addClass, removeClass } from 'element-ui/src/utils/dom';
-import ElCheckbox from 'element-ui/packages/checkbox';
+// import ElCheckbox from 'element-ui/packages/checkbox';
 // import ElTooltip from 'element-ui/packages/tooltip';
 import debounce from 'throttle-debounce/debounce';
 
@@ -38,9 +38,10 @@ function renderTableRow(row, $index, columnsHidden, h) {
   </tr>;
 }
 
+
 export default {
   components: {
-    ElCheckbox,
+    // ElCheckbox,
     // ElTooltip
   },
 
@@ -56,7 +57,9 @@ export default {
     rowClassName: [String, Function],
     rowStyle: [Object, Function],
     fixed: String,
-    highlight: Boolean
+    highlight: Boolean,
+    mergeCells: Boolean, //合并单元格
+    mergeId: String, // 用来识别合并分组
   },
 
   render(h) {
@@ -79,37 +82,66 @@ export default {
         <tbody>
           {
             this._l(this.data, (row, $index) => {
-              const rowCount = this.getNumsOfRowField(row);
+              let fieldIndex = new Array(this.rowCount);
+              var accumulator = new Array(this.rowCount);
+              fieldIndex.fill(0);
+              accumulator.fill(0);
+              let count = 1;
               return [
-                  this._l(rowCount, lineNo => <tr>{
+                this._l(this.rowCount, lineNo => {
+                  return <tr
+                  style={ this.rowStyle ? this.getRowStyle(row, $index) : null }
+                  key={ this.table.rowKey ? this.getKeyOfRow(row, $index) : $index }
+                  on-dblclick={ ($event) => this.handleDoubleClick($event, row) }
+                  on-click={ ($event) => this.handleClick($event, row) }
+                  on-contextmenu={ ($event) => this.handleContextMenu($event, row) }
+                  on-mouseenter={ _ => this.handleMouseEnter($index) }
+                  on-mouseleave={ _ => this.handleMouseLeave() }
+                  class={ [this.getRowClass(row, $index)] }>
+                  {
                     this._l(this.columns, (column, cellIndex) => {
-                      const rowSpan = this.getRowSpan(row, column);
-                      return lineNo % rowSpan === 1 || (rowSpan === 1)? <td rowspan={rowSpan} class={[column.id, column.align, column.className || '', columnsHidden[cellIndex] ? 'is-hidden' : '']}
-                                                          on-mouseenter={($event) => this.handleCellMouseEnter($event, row)}
-                                                          on-mouseleave={this.handleCellMouseLeave}>
+                      let value;
+                      if(this.mergeCells) {
+                        accumulator[cellIndex]++;
+                        const fields = row[column.property]; // 获取该列所有数据
+                        count = fields[fieldIndex[cellIndex]].count;
+                        value = fields[fieldIndex[cellIndex]].value;
+                        if(accumulator[cellIndex] === count) {
+                          accumulator[cellIndex] = 0;
+                          fieldIndex[cellIndex] ++;
+                        }
+                      }
+                      return  accumulator[cellIndex] === 1 || (count === 1)? <td
+                        class={ [column.id, column.align, column.className || '', columnsHidden[cellIndex] ? 'is-hidden' : ''] }
+                        on-mouseenter={ ($event) => this.handleCellMouseEnter($event, row) }
+                        on-mouseleave={ this.handleCellMouseLeave }
+                        rowspan={this.mergeCells ? count : 1}
+                      >
                         {
                           column.renderCell.call(this._renderProxy, h, {
                             row,
                             column,
                             $index,
-                            index: rowSpan === 1 ? lineNo - 1 : parseInt(lineNo / rowSpan),
+                            mergeValue: value,
                             store: this.store,
                             _self: this.context || this.table.$vnode.context
                           }, columnsHidden[cellIndex])
                         }
-                        </td>: null;
+                      </td> : null
                     })
-                  }</tr>),
-                  // renderTableRow.call(this, row, $index, columnsHidden, h),
-                  // ,
-                  this.store.states.expandRows.indexOf(row) > -1
-                    ? (<tr>
-                      <td colspan={ this.columns.length } class="el-table__expanded-cell">
-                        { this.table.renderExpanded ? this.table.renderExpanded(h, { row, $index, store: this.store }) : ''}
-                      </td>
-                    </tr>)
-                    : ''
-                ]
+                  }
+                  {
+                    !this.fixed && this.layout.scrollY && this.layout.gutterWidth ? <td class="gutter"/> : ''
+                  }
+                </tr>}),
+                this.store.states.expandRows.indexOf(row) > -1
+                  ? (<tr>
+                  <td colspan={ this.columns.length } class="el-table__expanded-cell">
+                    { this.table.renderExpanded ? this.table.renderExpanded(h, {row, $index, store: this.store}) : ''}
+                  </td>
+                </tr>)
+                  : ''
+              ]
             }).concat(
               this._self.$parent.$slots.append
             ).concat(
@@ -160,8 +192,36 @@ export default {
       return this.$parent;
     },
 
+    mergeRules() {
+      const rules = {};
+      this.columns.forEach(column => {
+        if(column.relativeProp) {
+          rules[column.property] = column.relativeProp;
+        }
+      });
+
+      return rules;
+    },
+
     data() {
+      if(this.mergeCells) {
+        return mergeData(this.store.states.data, {
+          uniqKey: this.mergeId,
+          rules: this.mergeRules
+        });
+      }
       return this.store.states.data;
+    },
+
+    rowCount() {
+      if(this.mergeCells) {
+        if(!this.data.length) {
+          return 0;
+        }else {
+          return Object.values(this.data[0])[0].reduce((accumulator, curr) => accumulator + curr.count, 0);
+        }
+      }
+      return 1;
     },
 
     columnsCount() {
@@ -183,49 +243,16 @@ export default {
 
   data() {
     return {
-      tooltipContent: ''
+      tooltipContent: '',
     };
   },
 
   created() {
-    // Object.defineProperty(this.store.states, 'columns', {
-    //   enumerable: true,
-    //   configurable: true,
-    //   get() {
-    //     return [];
-    //   },
-    //   set(newVal) {
-    //     debugger;
-    //     this.store.states.columns = newVal;
-    //   }
-    // });
     this.activateTooltip = debounce(50, tooltip => tooltip.handleShowPopper());
   },
 
   methods: {
-    getNumsOfRowField(row) {
-      // 所有字段长度的最小公倍数
-      var fieldCounts = [];
-      Object.keys(row).forEach((field)=> {
-        if(Object.prototype.toString.call(row[field]) === '[object Array]') {
-          fieldCounts.push(row[field].length);
-        }else {
-          fieldCounts.push(1);
-        }
-      });
-      return lcms(...fieldCounts);
-    },
-
-    getRowSpan(row, column) {
-      const field = row[column.property];
-      let length = 1;
-      if(field && Object.prototype.toString.call(field) === '[object Array]') {
-        length = field.length;
-      }
-      return this.getNumsOfRowField(row) / length;
-    },
-
-    getKeyOfRow(row) {
+    getKeyOfRow(row, index) {
       const rowKey = this.table.rowKey;
       if (rowKey) {
         return getRowIdentity(row, rowKey);
@@ -285,7 +312,7 @@ export default {
 
         this.tooltipContent = cell.innerText;
         tooltip.referenceElm = cell;
-        tooltip.$refs.popper.style.display = 'none';
+        tooltip.$refs.popper && (tooltip.$refs.popper.style.display = 'none');
         tooltip.doDestroy();
         tooltip.setExpectedState(true);
         this.activateTooltip(tooltip);

@@ -26,6 +26,8 @@
       :style="[bodyHeight]">
       <table-body
         :context="context"
+        :merge-cells="mergeCells"
+        :merge-id="mergeId"
         :store="store"
         :stripe="stripe"
         :layout="layout"
@@ -41,6 +43,7 @@
     <div class="el-table__footer-wrapper" ref="footerWrapper" v-if="showSummary" v-show="data && data.length > 0">
       <table-footer
         :store="store"
+        :merge-cells="mergeCells"
         :layout="layout"
         :border="border"
         :sum-text="sumText || t('el.table.sumText')"
@@ -70,6 +73,8 @@
         ]">
         <table-body
           fixed="left"
+          :merge-cells="mergeCells"
+          :merge-id="mergeId"
           :store="store"
           :stripe="stripe"
           :layout="layout"
@@ -112,6 +117,8 @@
         ]">
         <table-body
           fixed="right"
+          :merge-cells="mergeCells"
+          :merge-id="mergeId"
           :store="store"
           :stripe="stripe"
           :layout="layout"
@@ -213,7 +220,11 @@
 
       defaultSort: Object,
 
-      tooltipEffect: String
+      tooltipEffect: String,
+
+      mergeCells: Boolean, //合并单元格
+
+      mergeId: String, // prop名，用来识别合并的分组
     },
 
     components: {
@@ -257,11 +268,13 @@
         });
 
         const scrollBodyWrapper = event => {
-          const deltaX = event.deltaX;
+          const { deltaX, deltaY } = event;
+
+          if (Math.abs(deltaX) < Math.abs(deltaY)) return;
 
           if (deltaX > 0) {
             this.bodyWrapper.scrollLeft += 10;
-          } else {
+          } else if (deltaX < 0) {
             this.bodyWrapper.scrollLeft -= 10;
           }
         };

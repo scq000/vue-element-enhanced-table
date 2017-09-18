@@ -95,7 +95,11 @@ const getDefaultColumn = function(type, options) {
   return column;
 };
 
-const DEFAULT_RENDER_CELL = function(h, { row, column, index }) {
+const DEFAULT_RENDER_CELL = function(h, { row, column, mergeValue }) {
+  // 合并单元格的值
+  if(mergeValue) {
+    return mergeValue;
+  }
   const property = column.property;
   const value = property && property.indexOf('.') === -1
     ? row[property]
@@ -103,11 +107,11 @@ const DEFAULT_RENDER_CELL = function(h, { row, column, index }) {
   if (column && column.formatter) {
     return column.formatter(row, column, value);
   }
-  return value instanceof Array && value[index] !== undefined ? value[index]: value;
+  return value;
 };
 
 export default {
-  name: 'VTableColumn',
+  name: 'ElTableColumn',
 
   props: {
     type: {
@@ -148,7 +152,8 @@ export default {
     filterMultiple: {
       type: Boolean,
       default: true
-    }
+    },
+    relativeProp: [Array, String] // 合并相关的属性
   },
 
   data() {
@@ -208,6 +213,7 @@ export default {
 
     let isColumnGroup = false;
 
+
     let column = getDefaultColumn(type, {
       id: this.columnId,
       columnKey: this.columnKey,
@@ -239,6 +245,7 @@ export default {
       filterOpened: false,
       filteredValue: this.filteredValue || [],
       filterPlacement: this.filterPlacement || '',
+      relativeProp: this.relativeProp,
     });
 
     objectAssign(column, forced[type] || {});

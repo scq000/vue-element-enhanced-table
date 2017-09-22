@@ -83,13 +83,14 @@ export default {
         <tbody>
           {
             this._l(this.data, (row, $index) => {
-              let fieldIndex = new Array(this.rowCount);
-              var accumulator = new Array(this.rowCount);
+              const fieldLength = Object.keys(row).length;
+              let fieldIndex = new Array(fieldLength);
+              var accumulator = new Array(fieldLength);
               fieldIndex.fill(0);
               accumulator.fill(0);
               let count = 1;
               return [
-                this._l(this.rowCount, lineNo => {
+                this._l(this.rowCount($index), lineNo => {
                   allCount ++;
                   return <tr
                   style={ this.rowStyle ? this.getRowStyle(row, $index) : null }
@@ -103,7 +104,7 @@ export default {
                   {
                     this._l(this.columns, (column, cellIndex) => {
                       let value;
-                      if(this.mergeCells) {
+                      if(this.mergeCells && column.property) {
                         accumulator[cellIndex]++;
                         const fields = row[column.property]; // 获取该列所有数据
                         const field = fields[fieldIndex[cellIndex]] || {count: 1, value: undefined};
@@ -216,17 +217,6 @@ export default {
       return this.store.states.data;
     },
 
-    rowCount() {
-      if(this.mergeCells) {
-        if(!this.data.length) {
-          return 0;
-        }else {
-          return Object.values(this.data[0])[0].reduce((accumulator, curr) => accumulator + curr.count, 0);
-        }
-      }
-      return 1;
-    },
-
     columnsCount() {
       return this.store.states.columns.length;
     },
@@ -255,6 +245,18 @@ export default {
   },
 
   methods: {
+
+    rowCount(index) {
+      if(this.mergeCells) {
+        if(!this.data.length) {
+          return 0;
+        }else {
+          return Object.values(this.data[index])[0].reduce((accumulator, curr) => accumulator + curr.count, 0);
+        }
+      }
+      return 1;
+    },
+
     getKeyOfRow(row, index) {
       const rowKey = this.table.rowKey;
       if (rowKey) {

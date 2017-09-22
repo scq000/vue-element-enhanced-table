@@ -64,6 +64,7 @@ export default {
 
   render(h) {
     const columnsHidden = this.columns.map((column, index) => this.isColumnHidden(index));
+    let allCount = -1; // 用来记录原数据的行数
     return (
       <table
         class="el-table__body"
@@ -89,6 +90,7 @@ export default {
               let count = 1;
               return [
                 this._l(this.rowCount, lineNo => {
+                  allCount ++;
                   return <tr
                   style={ this.rowStyle ? this.getRowStyle(row, $index) : null }
                   key={ this.table.rowKey ? this.getKeyOfRow(row, $index) : $index }
@@ -104,8 +106,9 @@ export default {
                       if(this.mergeCells) {
                         accumulator[cellIndex]++;
                         const fields = row[column.property]; // 获取该列所有数据
-                        count = fields[fieldIndex[cellIndex]].count;
-                        value = fields[fieldIndex[cellIndex]].value;
+                        const field = fields[fieldIndex[cellIndex]] || {count: 1, value: undefined};
+                        count = field.count;
+                        value = field.value;
                         if(accumulator[cellIndex] === count) {
                           accumulator[cellIndex] = 0;
                           fieldIndex[cellIndex] ++;
@@ -119,7 +122,7 @@ export default {
                       >
                         {
                           column.renderCell.call(this._renderProxy, h, {
-                            row,
+                            row: this.store.states.data[allCount],
                             column,
                             $index,
                             mergeValue: value,

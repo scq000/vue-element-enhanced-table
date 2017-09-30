@@ -1,4 +1,3 @@
-import _ from 'lodash';
 import { getValueByPath } from 'element-ui/src/utils/util';
 
 export const getCell = function(event) {
@@ -109,6 +108,28 @@ function extractKey(arr, key, item, relativeKey) {
   }
 }
 
+function groupBy(arr, uniqKey) {
+  const combinedArr = arr.reduce(function (result, cur) {
+    let inner;
+
+    if (result.prev[uniqKey] !== cur[uniqKey]) {
+      inner = [];
+    } else {
+      inner = result.newArray.pop();
+    }
+
+    inner.push(cur);
+    result.prev = cur;
+    result.newArray.push(inner);
+
+    return result;
+  }, {
+    prev: {},
+    newArray: []
+  });
+  return combinedArr.newArray;
+}
+
 function createRowItem(arr, keys, rules) {
   const item = {};
   keys.forEach((key) => {
@@ -133,7 +154,7 @@ export function mergeData(arr, options) {
   const result = [];
 
   const keys = Object.keys(arr[0]);
-  _.toArray(_.groupBy(arr, uniqKey)).forEach(subArr => {
+  groupBy(arr, uniqKey).forEach(subArr => {
     result.push(createRowItem(subArr, keys, rules));
   });
 
